@@ -1,32 +1,32 @@
 ######################################################################
 # Data :  15/12/2018                                                 #
-# Autor : Pedro Henrique SodrÈ Puntel                                #
-# InstituiÁ„o : Escola Nacional de Ciencias EstatÌsticas - ENCE IBGE #
-# Disciplina : Projeto de IniciaÁ„o CientÌfica - PIBIC CNPq 2018     #
+# Autor : Pedro Henrique Sodr√© Puntel                                #
+# Institui√ß√£o : Escola Nacional de Ciencias Estat√≠sticas - ENCE IBGE #
+# Disciplina : Projeto de Inicia√ß√£o Cient√≠fica - PIBIC CNPq 2018     #
 # Tema : Top 100 Artists chart scraping - Billboard Web Site         #
 #######################################################################
 
-# Encoding default deste script È WINDOWS-1252
+# Encoding default deste script √© WINDOWS-1252
 #
 # Neste scrpit, faremos o scraping com o site da Billboard. Em um primeiro momento,
-# puxaremos os dados referentes ‡ chart Top 100 Artists e posteriormente, montaremos
+# puxaremos os dados referentes √† chart Top 100 Artists e posteriormente, montaremos
 # a sociomatiz associada.
 #
-# A chart mencionada È criada semanalmente pela BillBoard, porÈm, optou-se por scrapear
-# somente uma ˙nica chart por mÍs dentro do intervalo de tempo considerado. A raz„o por
-# tr·s disto È que pouca variaÁ„o na ordenaÁ„o dos artistas È observada de semana para
+# A chart mencionada √© criada semanalmente pela BillBoard, por√©m, optou-se por scrapear
+# somente uma √∫nica chart por m√™s dentro do intervalo de tempo considerado. A raz√£o por
+# tr√°s disto √© que pouca varia√ß√£o na ordena√ß√£o dos artistas √© observada de semana para
 # semana.
 # 
-# Data m·xima suportada pelo site da Billboad : 19/07/2014
-# Qualquer data abaixo de 19/07/2014 È automaticamente redirecionada para 19/07/2014.
+# Data m√°xima suportada pelo site da Billboad : 19/07/2014
+# Qualquer data abaixo de 19/07/2014 √© automaticamente redirecionada para 19/07/2014.
 # Prova real : >> https://www.billboard.com/charts/artist-100/2000-01-01
 #
-# Em um primeiro momento, pensou-se que seria mais f·cil scrapear os botıes 'Last Week' 
-# 'Next Week' da p·gina. PorÈm, estes s„o na verdade elementos href, o que fica custoso
-# computacionalmente via Selenium. Assim, optou-se pela 'forÁa bruta', que consiste em 
-# recriar as URLs das charts de acordo com o padr„o observado e assim, acessar cada uma 
-# destas para fazer a coleta. De fato, o scrap perde um pouco do seu "brilho" por n„o 
-# fazer o uso de um ferramenta mais avanÁada como o Selenium, mas ganha em perfomance.
+# Em um primeiro momento, pensou-se que seria mais f√°cil scrapear os bot√µes 'Last Week' 
+# 'Next Week' da p√°gina. Por√©m, estes s√£o na verdade elementos href, o que fica custoso
+# computacionalmente via Selenium. Assim, optou-se pela 'for√ßa bruta', que consiste em 
+# recriar as URLs das charts de acordo com o padr√£o observado e assim, acessar cada uma 
+# destas para fazer a coleta. De fato, o scrap perde um pouco do seu "brilho" por n√£o 
+# fazer o uso de um ferramenta mais avan√ßada como o Selenium, mas ganha em perfomance.
 
 # Pacotes utilizados
 library(usethis)
@@ -45,10 +45,10 @@ use_git_config(scope = "user", user.name = "PedroPuntel", user.email = "pedro.pu
 cores_cluster = makeCluster(detectCores(), type = "PSOCK")
 registerDoSEQ()
 
-# Estrutura b·sica da Top 100 Artists Chart da Billboard
+# Estrutura b√°sica da Top 100 Artists Chart da Billboard
 Chart.URL = "https://www.billboard.com/charts/artist-100"
 
-# ExtraÌ a data da chart mais recente e constrÛi ent„o a URL que apota para tal
+# Extra√≠ a data da chart mais recente e constr√≥i ent√£o a URL que apota para tal
 Beggining.Date = read_html(Chart.URL) %>%
   html_node('#main > div.chart-detail-header > div.container.container--no-background.chart-detail-header__chart-info > div > span.dropdown.chart-detail-header__date-selector > button') %>%
   html_text(trim = TRUE) %>%
@@ -57,36 +57,36 @@ Beggining.Date = read_html(Chart.URL) %>%
 # Primeira Top 100 Artists Chart da Billboard : 26/07/2014
 End.Date = "2014-07-19" %>% as.Date()
 
-# ConstrÛi uma sequÍncia de datas associadas as charts que iremos scrapear (retrocede 4 semanas no tempo)
+# Constr√≥i uma sequ√™ncia de datas associadas as charts que iremos scrapear (retrocede 4 semanas no tempo)
 Months.To_Pull = seq(from = Beggining.Date, to = End.Date, by = "-4 week")
 
 # Recriando as URLs
 Charts.URLs = paste0("https://www.billboard.com/charts/artist-100/", Months.To_Pull)
 
-# Objeto tipo lista que guardar· os artistas das n-Èsimas charts
+# Objeto tipo lista que guardar√° os artistas das n-√©simas charts
 Charts.List = list()
 
-# Processo de navegaÁ„o e scrap das p·ginas (com paralelizaÁ„o)
+# Processo de navega√ß√£o e scrap das p√°ginas (com paraleliza√ß√£o)
 foreach(i = 1:length(Charts.URLs)) %dopar% {
-  print(paste0("Scrapeando p·gina n∞ ", i))
+  print(paste0("Scrapeando p√°gina n¬∞ ", i))
   Charts.List[[i]] = read_html(Charts.URLs[i]) %>%
     html_nodes(".chart-number-one__title , .chart-list-item__title") %>%
     html_text(trim = TRUE)
 }
 stopCluster(cores_cluster)
 
-# Selecionando somente os Top 20 artistas de cada chart eliminando a redund‚ncia do primeiro artista
+# Selecionando somente os Top 20 artistas de cada chart eliminando a redund√¢ncia do primeiro artista
 Charts.List <- lapply(Charts.List, function(i) {i = i[2:21]})
 Charts.List[[1]]
 
-# Vetor com todos os artistas que j· apareceram nas charts (sem repetiÁ„o)
+# Vetor com todos os artistas que j√° apareceram nas charts (sem repeti√ß√£o)
 Artists.Unique = unlist(Charts.List) %>% unique()
 
-# CombinaÁıes de pares de artistas que dever„o ser verificados para montagem da sociomatriz
+# Combina√ß√µes de pares de artistas que dever√£o ser verificados para montagem da sociomatriz
 Artists.Pairs = expand.grid(Artists.Unique,Artists.Unique)
 Artists.Pairs = with(Artists.Pairs, split(Artists.Pairs, as.factor(Artists.Pairs$Var2)))
 
-# ConstrÛi a sociomatriz
+# Constr√≥i a sociomatriz
 Social_Matrix = matrix(0, ncol = length(Artists.Unique), nrow = length(Artists.Unique))
 rownames(Social_Matrix) = Artists.Unique
 colnames(Social_Matrix) = Artists.Unique
@@ -112,6 +112,6 @@ Social_Matrix[1:5,1:4]
 setwd("C:\\Users\\pedro\\Desktop\\R\\PIBIC 2018\\Analyses\\BillBoard\\Database")
 rio::export(Social_Matrix, "15062019_BillboardTop20_SocialMatrix.csv", format = ",")
 
-# Limpando MemÛria
+# Limpando Mem√≥ria
 rm(Artists.Pairs, Charts.List, Social_Matrix, Artists.Unique, Beggining.Date, Chart.URL,
    Charts.URLs, counter, current_pair, End.Date, i, j, Months.To_Pull, cores_cluster)
