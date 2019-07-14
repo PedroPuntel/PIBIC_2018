@@ -1,16 +1,19 @@
-############################################################################
-## Data :  21/03/2018)                                                    ##
-## Autor : Pedro Henrique Sodré Puntel                                    ##
-## Email : pedro.puntel@gmail.com                                         ##
-## Instituição : Escola Nacional de Ciencias Estatísticas - ENCE IBGE     ##
-## Disciplina : Projeto de Iniciaçãoo Científica - PIBIC CNPq 2018/2019   ##
-## Professor : Gustavo Ferreira                                           ##
-## Tema : Aplicação dos Modelos para redes sociais aos dados da Billboard ##
-############################################################################
+######################################################################
+# Data :  03/04/2019                                                 #
+# Autor : Pedro Henrique Sodré Puntel                                #
+# Instituição : Escola Nacional de Ciencias Estatísticas - ENCE IBGE #
+# Disciplina : Projeto de Iniciação Científica - PIBIC CNPq 2018     #
+# Tema : Top 100 Artists chart scraping - Billboard Web Site         #
+######################################################################
 
 # Encoding default para este script é UTF-8 
 
+##########
+## Setup :
+########## 
+
 # Pacotes utilizados
+library(usethis)
 library(dplyr)
 library(plotly)
 library(network)
@@ -18,19 +21,20 @@ library(MCMCpack)
 library(latentnet)
 library(compiler)
 
+# Github Setup
+use_git_config(scope = "user", user.name = "PedroPuntel", user.email = "pedro.puntel@gmail.com")
+
 # Perfomance Setup
-cl = makeCluster(detectCores(), type = "PSOCK")
+cl <- makeCluster(detectCores(), type = "PSOCK")
 registerDoSEQ()
 
 # Importa a sociomatriz
-path = "C:\\Users\\pedro\\Desktop\\R\\PIBIC 2018\\Analyses\\BillBoard\\Database\\15062019_BillboardTop20_SocialMatrix.csv"
-Social_Matrix = rio::import(path) %>% as.matrix()
-rownames(Social_Matrix) = colnames(Social_Matrix)
-rm(path)
+Social_Matrix <- rio::import(file = file.choose()) %>% as.matrix()
+rownames(Social_Matrix) <- colnames(Social_Matrix)
 
 # Redução da sociomatriz - "100 artistas que mais ocuparam o Top 20 da Billboard"
-Social_Matrix = Social_Matrix[order(rowSums(Social_Matrix), decreasing = T), order(colSums(Social_Matrix), decreasing = T)]
-Social_Matrix = Social_Matrix[1:100,1:100]
+Social_Matrix <- Social_Matrix[order(rowSums(Social_Matrix), decreasing = T), order(colSums(Social_Matrix), decreasing = T)]
+Social_Matrix <- Social_Matrix[1:100,1:100]
 
 #############################
 ## Estatísticas Descritivas : 
@@ -50,7 +54,7 @@ aux.vec <- aux.vec[order(aux.vec, decreasing = T)]
 aux.df <- cbind(colnames(Social_Matrix), aux.vec) %>% data.table::as.data.table()
 plot_ly(aux.df, x = colnames(Social_Matrix), y = aux.vec, type = 'bar',
         marker = list(color = "Purple", line = list(color = "Purple", width = 2.5))) %>%
-    layout(title = "Número de meses ocupados no Top 20 da Billboard - (65 no total)",
+    layout(title = "Número de meses ocupados no Top 20 da Billboard - (66 no total)",
            xaxis = list(categoryorder = "array", categoryarray = colnames(Social_Matrix)),
             yaxis = list(title = "Meses no Top 20", categoryorder = "array", categoryarray = aux.vec))
 
@@ -59,7 +63,7 @@ rm(aux.df, aux.vec)
 
 ############## Análises ###############
 # . Heatmap mostra claramente que poucos são os artistas que ocuparam o Top 20 da Billboard por muito tempo
-# . Destaque para os Top 5 artistas : Drake, Ed Sheeran, Taylor Swift, Ariana Grande e The Weekend
+# . Destaque para os Top 5 artistas : Drake, Ed Sheeran, Ariana Grande, Taylor Swift e Shawn Mendes
 # . Gráfico de barras reforça o observado no Heatmap.
   
 ##########################################
@@ -87,7 +91,7 @@ rm(aux.df, aux.vec)
 # considera um intercepto e então esta versão da matriz não foi considerada.
 
 # Função que implementa o Modelo de Abertura para Conexões
-Compute.Modelo_Abertura_Conexoes = function(socio.mat, k.artists, n.months) {
+Compute.Modelo_Abertura_Conexoes <- function(socio.mat, k.artists, n.months) {
   
   # Sub-rotina responsável pela construção da Matriz de Delineamento
   Build.Design_Matrix = function(k.artists) {
@@ -281,7 +285,7 @@ MLG$Poisson$Model$residuals %>% as.numeric() %>% plot()
 MLG$Poisson$Model$converged
 MLG$Poisson$Plot
 
-##############  Resultados ###############
+############## Resultados ###############
 ## . Modelo Poisson aparenta ser o mais relevante dentre os três
 ## . Modelo Poisson foi o único que convergiu dos três
 ## . Modelo Poisson classifica 46 artistas como extrovertidos e 54 como introvertidos
@@ -438,7 +442,7 @@ Compute.Multidimensional_Scaling <- function(socio.mat, use.risk_mat = F) {
   
 }
 Compute.Multidimensional_Scaling <- cmpfun(Compute.Multidimensional_Scaling)
-MDS <- Compute.Multidimensional_Scaling(Social_Matrix[1:100,1:100], use.risk_mat = F)
+MDS <- Compute.Multidimensional_Scaling(Social_Matrix[1:50, 1:50], use.risk_mat = F)
 
 ############## Resultados ################
 ## . Padrão de conexões ainda é conservado após a redução da Socio-Matriz.
@@ -484,13 +488,13 @@ MDS <- Compute.Multidimensional_Scaling(Social_Matrix[1:100,1:100], use.risk_mat
 ## camento dos eixos coordenados. Como consequência, é comum fixar 3 dos parâmetros para fins de
 ## estimação.
 ##
-## Valores iniciais candidatos os posições dos atores no espaço latente são aqueles proveni-
-## entes do escalonamento multidimensional. Tais valores serão posteriormente otimizados pela
-## função maximizadora não-linear do R nlminb().
+## Valores iniciais candidatos os posições dos atores no espaço latente são aqueles provenientes
+## do escalonamento multidimensional. Tais valores serão posteriormente otimizados pela função
+## maximizadora não-linear do R : nlminb().
 
-## [03/06/19] : Por uma mera questão de consistência com a mudança introduzida no Escalonamento
-## Multidimensional, optou-se por realizar a estimação dos parâmetros utilizando a Socio-Matriz
-## de Correlação (tanto nos métodos de Máxima Verossimilhança como nos métodos Bayesianos).
+## [03/06/19] : Por uma questão de consistência com o procedimento adotado no Escalonamento Multidimensional,
+## optou-se por realizar a estimação dos parâmetros utilizando mais uma vez a Socio-Matriz de Correlações em
+## ambos os métodos de estimação (Máxima Verossimilhança e Bayesianos).
 
 ## Função que implementa o Modelo de Distâncias Latentes 
 Compute.Latent_Distances_Model <- function(socio.mat, Is.direct, Is.Weighted, Has.Loops, Bayesian.Est) {
@@ -549,7 +553,7 @@ Compute.Latent_Distances_Model <- function(socio.mat, Is.direct, Is.Weighted, Ha
     }
     
     ## Maximização da função de Log-Verossimilhança
-    Poisson.MLE <- nlminb(start = par.vec, objective = Poisson.LLH)
+    Poisson.MLE <- nlminb(start = par.vec, objective = Poisson.LLH, control = list(eval.max = 500, iter.max = 1000))
     
     ## Tabela com os parâmetros estimados
     MLE.coord <- cbind(Poisson.MLE$par[1:ncol(socio.mat)], Poisson.MLE$par[(ncol(socio.mat)+1):(2*ncol(socio.mat))])
@@ -639,7 +643,7 @@ Compute.Latent_Distances_Model <- function(socio.mat, Is.direct, Is.Weighted, Ha
     ## overestimating the variability in the unknown latente positions, because these are
     ## identical for Z1 and Z2.
     ##
-    ## Fortunately, this problem can be resolved by perfoming inference on a seta that we call 
+    ## Fortunately, this problem can be resolved by perfoming inference on a set that we call 
     ## "equivalence classes of latent positions" : Let [Z] be the set of positions equivalent
     ## to matrix of latent positions Z under the previous mentioned operations. For each [Z],
     ## there is one set of distances between the nodes. We oftne refet to this class of positions
@@ -677,29 +681,34 @@ Compute.Latent_Distances_Model <- function(socio.mat, Is.direct, Is.Weighted, Ha
 Compute.Latent_Distances_Model <- cmpfun(Compute.Latent_Distances_Model)
 
 ############## Resultados (Máxima Verossimilhança) #############################
-## . Infelizmente, só foi possível maximizar a função de Log-Verossimilhança com 25 artistas
-## . Mesmo aumentando o número de iterações para a função nlminb(), não houve diferença
-## . Disposição dos artistas distinta daquela sugerida pela Escalonamento Multidimensional
-## . É difícil identificar um padrão de agrupamento com apenas 25 artistas, porém, mesmo assim 
-## é possível identificar os artistas mais populares aglomerados no centro da rede enquanto os
-## demais (menos populares) vão se posicionando ao reder destes.
-Latent.MLE <- Compute.Latent_Distances_Model(Social_Matrix[1:25,1:25],F,T,T,F)
+## . Infelizmente, não se conseguiu convergência na função de MV com mais do que 50 artistas
+## . Alterar os parâmetros da função nlminb() só fazem diferença até certo ponto.
+## . Disposição dos artistas é bem distinta daquela sugerida pela Escalonamento Multidimensional
+## . É preciso ter alguma cautela ao inferir sobre o padrão de agrupamento dos artistas como um todo,
+## dado que os nossos resultados estão restritos á uma pequena parcela dos mesmos. Porém, mesmo assim, 
+## é possível identificar os artistas mais populares sendo dispostos mais ao centro da rede enquanto os
+## demais (menos populares) vão se posicionando ao redor destes.
+Latent.MLE <- Compute.Latent_Distances_Model(Social_Matrix[1:50,1:50],F,T,T,F)
 Latent.MLE$Results$Has.Converged
 Latent.MLE$Results$Fun.Maximum
-Latent.MLE$Results$MLE.Par
+Latent.MLE$Results$MLE.Par %>% head()
 
 ############## Resultados (Bayesianos) #############################
 ## . Métodos Bayesianos já são capazes de lidar com a Sociomatriz por completo
 ## . Valores passados como parâmetros iniciais pouco interferem na disposição final dos artistas
-## . par.vec = MDS ou par.vec = cor.MDS resultam em grafos (es estimações) parecidissímas
+## . par.vec = MDS ou par.vec = cor.MDS resultam em grafos (estimações) parecidissímas
 ## . Parâmetros estimados por MV diferem numericamente mas não graficamente daqueles por MDP
 ## . Disposição dos artistas totalmente diferente daquela sugerida pelo Escalonamento Multidimensional
-Latent.Bayesian <- Compute.Latent_Distances_Model(Social_Matrix[1:25,1:25],F,T,F,T)
+Latent.Bayesian <- Compute.Latent_Distances_Model(Social_Matrix[1:50,1:50],F,T,F,T)
 Latent.Bayesian$Results$Results$mle$Z %>% head()
 Latent.Bayesian$Results$Results$pmode$Z %>% head()
 plot(Latent.Bayesian$Results$Results)
-edges <- igraph::graph.adjacency(as.matrix(round(Social_Matrix[1:25,1:25]/10,0)), mode = "undirected", diag = F, weighted = T)
-igraph::tkplot(edges, vertex.size = 30, edge.width = 1,vertex.label = colnames(Social_Matrix)[1:25],
-               layout = Latent.Bayesian$Results$Results$mle$Z, vertex.color = I("Light Green"),
+edges <- igraph::graph.adjacency(as.matrix(round(Social_Matrix[1:50,1:50]/10,0)), mode = "undirected", diag = F, weighted = T)
+igraph::tkplot(edges, vertex.size = 30, edge.width = 1,vertex.label = colnames(Social_Matrix)[1:50],
+               layout = Latent.Bayesian$Results$Results$mle$Z, vertex.color = I("Yellow"),
                vertex.label.cex = 1, vertex.label.color = "Black")
+igraph::tkplot(edges, vertex.size = 30, edge.width = 1,vertex.label = colnames(Social_Matrix)[1:50],
+               layout = Latent.Bayesian$Results$Results$pmode$Z, vertex.color = I("Light Green"),
+               vertex.label.cex = 1, vertex.label.color = "Black")
+
 
